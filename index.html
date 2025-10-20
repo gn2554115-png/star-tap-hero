@@ -4,31 +4,48 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Star Tap Hero</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=sb2" />
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 </head>
 <body>
-  <header>
+  <header class="topbar">
     <h1>⭐ Star Tap Hero</h1>
     <button id="loginBtn">Sign in with Pi</button>
   </header>
-  <main class="hud">
-  <canvas id="game" width="360" height="560"></canvas>
 
-  <!-- 計分板 -->
-  <aside class="scoreboard">
-    <h3>Scoreboard</h3>
-    <ul id="boardList"></ul>
-    <div class="total">Total: <span id="totalScore">0</span></div>
-  </aside>
+  <div class="game-layout">
+    <!-- 左：遊戲區 -->
+    <div class="play">
+      <canvas id="game" width="360" height="560"></canvas>
+      <!-- 覆蓋在遊戲畫面上的特效層 -->
+      <canvas id="fx" width="360" height="560"></canvas>
 
-  <div class="panel">
-    <button id="startBtn">Start</button>
-    <button id="tipBtn" disabled>Tip 0.01 Pi</button>
-    <p id="score">Score: 0</p>
+      <div class="controls">
+        <button id="startBtn">Start</button>
+        <button id="tipBtn" disabled>Tip 0.01 Pi</button>
+        <p id="score">Score: 0</p>
+      </div>
+    </div>
+
+    <!-- 右：計分板 -->
+    <aside class="sidebar">
+      <div class="scoreboard">
+        <div class="sb-title">Scoreboard</div>
+        <ul id="sbList">
+          <!-- 每個幣種一列，初始 0 -->
+          <li id="row-PI"><span class="dot pi"></span><span>PI (π)</span><b class="val">0</b></li>
+          <li id="row-B"><span class="dot btc"></span><span>B (₿)</span><b class="val">0</b></li>
+          <li id="row-E"><span class="dot eth"></span><span>E (Ξ)</span><b class="val">0</b></li>
+          <li id="row-S"><span class="dot s"></span><span>S</span><b class="val">0</b></li>
+          <li id="row-U"><span class="dot u"></span><span>U</span><b class="val">0</b></li>
+          <li id="row-D"><span class="dot doge"></span><span>D (Ð)</span><b class="val">0</b></li>
+        </ul>
+        <div class="sb-total">Total: <b id="sbTotal">0</b></div>
+      </div>
+    </aside>
   </div>
-</main>
+
   <footer><small>Built for Pi Browser • Testnet version</small></footer>
-  <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  <script src="game.js?v=sb2"></script>
 </body>
 </html>
