@@ -16,7 +16,7 @@ const timerEl  = document.getElementById("timer");
 const COINS = [
   { key:"PI", label:"π", color:"#9B4DFF", baseR:34, score:5 },
   { key:"B" , label:"₿", color:"#F7931A", baseR:26, score:3 },
-  { key:"E" , label:"Ξ", color:"#627EEA", baseR:24, score:2 },
+  { key:"E" , label:"E", color:"#627EEA", baseR:24, score:2 },
   { key:"S" , label:"S", color:"#111827", baseR:22, score:2 },
   { key:"U" , label:"U", color:"#22c55e", baseR:22, score:1 },
   { key:"D" , label:"Ð", color:"#C2A633", baseR:22, score:1 },
