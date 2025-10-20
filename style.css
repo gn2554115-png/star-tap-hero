@@ -27,3 +27,17 @@ button {
 .panel {
   margin: 10px auto;
 }
+.hud{
+  display:flex; gap:16px; align-items:flex-start; justify-content:center; flex-wrap:wrap;
+}
+.scoreboard{
+  background:#24145a; border-radius:12px; padding:12px; min-width:160px; color:#fff;
+}
+.scoreboard h3{ margin:0 0 8px 0; font-size:16px; }
+.scoreboard ul{ list-style:none; padding:0; margin:0 0 6px 0; }
+.scoreboard li{ display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px dashed rgba(255,255,255,.12); }
+.scoreboard .total{ margin-top:6px; font-weight:bold; display:flex; justify-content:space-between; }
+@media (max-width:720px){
+  .hud{flex-direction:column; align-items:center;}
+  .scoreboard{width:90%;}
+}
