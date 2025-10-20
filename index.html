@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Star Tap Hero</title>
-  <link rel="stylesheet" href="style.css?v=sb2" />
+  <link rel="stylesheet" href="style.css?v=sb3" />
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 </head>
 <body>
@@ -13,26 +13,17 @@
     <button id="loginBtn">Sign in with Pi</button>
   </header>
 
-  <div class="game-layout">
-    <!-- 左：遊戲區 -->
-    <div class="play">
+  <main class="stage">
+    <!-- 遊戲容器 -->
+    <div class="play" id="play">
       <canvas id="game" width="360" height="560"></canvas>
-      <!-- 覆蓋在遊戲畫面上的特效層 -->
+      <!-- 完全透明特效層（只畫粒子/流星） -->
       <canvas id="fx" width="360" height="560"></canvas>
 
-      <div class="controls">
-        <button id="startBtn">Start</button>
-        <button id="tipBtn" disabled>Tip 0.01 Pi</button>
-        <p id="score">Score: 0</p>
-      </div>
-    </div>
-
-    <!-- 右：計分板 -->
-    <aside class="sidebar">
-      <div class="scoreboard">
+      <!-- 右側細條計分板（隨螢幕自適應，不擋畫面） -->
+      <aside class="scoreboard" id="scoreboard">
         <div class="sb-title">Scoreboard</div>
         <ul id="sbList">
-          <!-- 每個幣種一列，初始 0 -->
           <li id="row-PI"><span class="dot pi"></span><span>PI (π)</span><b class="val">0</b></li>
           <li id="row-B"><span class="dot btc"></span><span>B (₿)</span><b class="val">0</b></li>
           <li id="row-E"><span class="dot eth"></span><span>E (Ξ)</span><b class="val">0</b></li>
@@ -41,11 +32,22 @@
           <li id="row-D"><span class="dot doge"></span><span>D (Ð)</span><b class="val">0</b></li>
         </ul>
         <div class="sb-total">Total: <b id="sbTotal">0</b></div>
+        <div class="sb-best">
+          <div class="sb-best-title">🏆 Top 5</div>
+          <ol id="bestList"></ol>
+        </div>
+      </aside>
+
+      <div class="controls">
+        <button id="startBtn">Start</button>
+        <button id="tipBtn" disabled>Tip 0.01 Pi</button>
+        <p id="score">Score: 0</p>
       </div>
-    </aside>
-  </div>
+    </div>
+  </main>
 
   <footer><small>Built for Pi Browser • Testnet version</small></footer>
-  <script src="game.js?v=sb2"></script>
+
+  <script src="game.js?v=sb3"></script>
 </body>
 </html>
