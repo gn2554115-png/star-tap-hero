@@ -148,14 +148,75 @@ function meteor(x,y,key,color){
   })();
 }
 
+// 霓虹硬幣：外圈多層發光 + 內圈暗面 + 中央符號帶光暈
 function drawCoin(d){
-  const {x,y,r,coin}=d;
-  ctx.fillStyle = coin.color;
-  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-  ctx.save(); ctx.translate(x,y); ctx.rotate(d.rot);
-  ctx.fillStyle="#fff"; ctx.font=`bold ${Math.round(r*1.15)}px Arial`;
-  ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(coin.label,0,1);
+  const { x, y, r, coin } = d;
+  const color = coin.color;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(d.rot);
+
+  // --- 外圈多層發光（由大到小堆疊） ---
+  for (let i = 5; i >= 1; i--) {
+    const alpha = 0.10 + i * 0.05;             // 外層淡、內層亮
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.strokeStyle = hexWithAlpha(color, alpha);
+    ctx.lineWidth = (r * 0.50) * (i / 5);      // 漸細
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8 + i * 6;
+    ctx.stroke();
+  }
+
+  // --- 內圈底色（暗） ---
+  const grd = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r * 0.92);
+  grd.addColorStop(0, "rgba(0,0,0,0.25)");
+  grd.addColorStop(1, "rgba(0,0,0,0.55)");
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.88, 0, Math.PI * 2);
+  ctx.fill();
+
+  // --- 內圈細亮邊 ---
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.88, 0, Math.PI * 2);
+  ctx.strokeStyle = hexWithAlpha(color, 0.9);
+  ctx.lineWidth = Math.max(2, r * 0.07);
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 10;
+  ctx.stroke();
+
+  // --- 中央符號（白 + 光暈；S 是黑幣，用白描邊避免看不清） ---
+  ctx.font = `bold ${Math.round(r*1.15)}px Arial`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // 外發光字殼
+  ctx.fillStyle = "#fff";
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 16;
+  ctx.fillText(coin.label, 0, 1);
+
+  // S 是黑色系，額外描邊提高可讀性
+  if (coin.key === "S") {
+    ctx.lineWidth = Math.max(2, r * 0.10);
+    ctx.strokeStyle = "rgba(255,255,255,0.85)";
+    ctx.shadowBlur = 0;
+    ctx.strokeText(coin.label, 0, 1);
+  }
+
   ctx.restore();
+}
+
+// 小工具：把 #RRGGBB 加透明度（0~1）
+function hexWithAlpha(hex, a){
+  // 支援 #RGB 或 #RRGGBB
+  const c = hex.replace('#','');
+  const r = c.length===3 ? parseInt(c[0]+c[0],16) : parseInt(c.slice(0,2),16);
+  const g = c.length===3 ? parseInt(c[1]+c[1],16) : parseInt(c.slice(2,4),16);
+  const b = c.length===3 ? parseInt(c[2]+c[2],16) : parseInt(c.slice(4,6),16);
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 function shake(){
