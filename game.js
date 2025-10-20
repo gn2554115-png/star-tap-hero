@@ -11,12 +11,12 @@ let gameRunning = false;
 
 // 幣種資料
 const COINS = [
-  { id: "pi", label: "π", color: "#FFD700", baseR: 32, score: 5, weight: 1.2 }, // 最大、金色
+  { id: "pi", label: "π", color: "#9B4DFF", baseR: 32, score: 5, weight: 1.2 }, // 紫色 Pi 幣
   { id: "btc", label: "₿", color: "#F7931A", baseR: 24, score: 3, weight: 1.0 },
-  { id: "eth", label: "Ξ", color: "#627EEA", baseR: 22, score: 2, weight: 0.9 },
-  { id: "sol", label: "◎", color: "#14F195", baseR: 20, score: 2, weight: 0.8 },
-  { id: "doge", label: "Ð", color: "#C2A633", baseR: 20, score: 1, weight: 0.8 },
-  { id: "usdc", label: "$", color: "#2775CA", baseR: 18, score: 1, weight: 0.7 },
+  { id: "eth", label: "E", color: "#627EEA", baseR: 22, score: 2, weight: 0.9 },
+  { id: "sol", label: "S", color: "#14F195", baseR: 20, score: 2, weight: 0.8 },
+  { id: "doge", label: "D", color: "#C2A633", baseR: 20, score: 1, weight: 0.8 },
+  { id: "usdc", label: "U", color: "#2775CA", baseR: 18, score: 1, weight: 0.7 },
 ];
 
 // 隨機挑幣種（含權重）
