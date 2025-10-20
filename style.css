@@ -1,0 +1,29 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #1a1333;
+  color: #fff;
+  text-align: center;
+}
+header {
+  background: #4527a0;
+  padding: 10px;
+  color: #fff;
+}
+canvas {
+  background: #2c1d6b;
+  border-radius: 16px;
+  margin: 12px auto;
+  display: block;
+}
+button {
+  margin: 5px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #7e57c2;
+  color: #fff;
+}
+.panel {
+  margin: 10px auto;
+}
