@@ -2,11 +2,11 @@
   --bg:#120f27;
   --panel:#2a1f63;
   --accent:#7e57c2;
-  --pi:#9B4DFF;   /* Pi 紫 */
+  --pi:#9B4DFF;    /* Pi 紫 */
   --btc:#F7931A;
   --eth:#627EEA;
-  --s:#111827;    /* S 黑色 */
-  --u:#22c55e;    /* U 綠色 */
+  --s:#111827;     /* S 黑 */
+  --u:#22c55e;     /* U 綠 */
   --doge:#C2A633;
   --text:#fff;
 }
@@ -17,50 +17,78 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
 .topbar h1{margin:0}
 .topbar button{margin-left:12px}
 
-.game-layout{
-  display:grid;
-  grid-template-columns: minmax(360px,420px) minmax(240px,1fr);
-  gap:24px;
-  max-width:1000px;
-  margin:20px auto;
-  padding:0 16px;
+.stage{display:flex;justify-content:center;padding:16px}
+.play{
+  position:relative;
+  width:min(92vw, 980px);
+  /* 高度自動，以 canvas 為主 */
 }
-.play{position:relative;background:transparent;display:flex;flex-direction:column;align-items:center}
-#game{background:#2c1d6b;border-radius:16px;display:block}
-#fx{position:absolute;top:0;left:0;pointer-events:none}
+#game{
+  background:#2c1d6b;
+  border-radius:16px;
+  display:block;
+  width:min(92vw, 600px);   /* 桌面稍寬，手機自適應 */
+  max-width:600px;
+  height:auto;
+  aspect-ratio: 9 / 14;     /* 維持比例 */
+}
+#fx{
+  position:absolute;
+  top:0; left:0;
+  width:100%; height:auto;
+  aspect-ratio: 9 / 14;
+  pointer-events:none;
+  background:transparent;   /* 透明，避免黑屏 */
+}
 
-.controls{display:flex;align-items:center;gap:10px;margin:10px 0}
+.controls{
+  display:flex;align-items:center;gap:10px;margin:10px 0
+}
 button{padding:8px 14px;border:0;border-radius:8px;background:var(--accent);color:#fff}
 button:disabled{opacity:.6}
 
-.sidebar{display:flex;justify-content:flex-start}
+/* 右側細條計分板（絕對定位在遊戲區右邊） */
 .scoreboard{
-  width:100%;
-  max-width:280px;
+  position:absolute;
+  top:8px;
+  right:-210px;            /* 桌面：貼在右邊，不擋畫面 */
+  width:200px;
   background:var(--panel);
   border-radius:12px;
-  padding:12px 14px;
-  box-shadow:0 6px 20px rgba(0,0,0,.2);
+  padding:10px;
+  box-shadow:0 6px 20px rgba(0,0,0,.25);
 }
 .sb-title{font-weight:700;margin-bottom:8px;text-align:center}
-#sbList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
-#sbList li{display:grid;grid-template-columns:20px 1fr auto;align-items:center;gap:8px;background:rgba(0,0,0,.12);padding:6px 8px;border-radius:8px}
-#sbList .val{font-variant-tabular-nums:tabular-nums}
-.dot{width:14px;height:14px;border-radius:50%}
-.dot.pi{background:var(--pi)}
-.dot.btc{background:var(--btc)}
-.dot.eth{background:var(--eth)}
-.dot.s{background:var(--s)}
-.dot.u{background:var(--u)}
-.dot.doge{background:var(--doge)}
-.sb-total{margin-top:10px;text-align:center;font-weight:700}
+#sbList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+#sbList li{display:grid;grid-template-columns:18px 1fr auto;align-items:center;gap:8px;background:rgba(0,0,0,.12);padding:5px 7px;border-radius:8px}
+#sbList .val{font-variant-numeric:tabular-nums}
+.dot{width:12px;height:12px;border-radius:50%}
+.dot.pi{background:var(--pi)} .dot.btc{background:var(--btc)} .dot.eth{background:var(--eth)}
+.dot.s{background:var(--s)} .dot.u{background:var(--u)} .dot.doge{background:var(--doge)}
+.sb-total{margin-top:8px;text-align:center;font-weight:700}
+.sb-best{margin-top:8px}
+.sb-best-title{font-size:.9rem;opacity:.9}
+#bestList{margin:6px 0 0 18px;padding:0}
 
-footer{ text-align:center; color:#aaa; margin:20px 0 }
-
-@media (max-width: 800px){
-  .game-layout{
-    grid-template-columns: 1fr;
-    justify-items:center;
+/* 手機：計分板縮小到右上角（或改成上方） */
+@media (max-width: 720px){
+  #game{width:94vw;max-width:none}
+  .scoreboard{
+    right:8px;             /* 進入畫面 */
+    width:160px;
+    transform:scale(.95);
+    transform-origin: top right;
+    background:rgba(42,31,99,.92);
+    backdrop-filter: blur(4px);
   }
-  .sidebar{justify-content:center}
 }
+
+/* 命中抖動動畫 */
+@keyframes shake {
+  0%{ transform: translate(0,0) }
+  25%{ transform: translate(2px,-2px) }
+  50%{ transform: translate(-2px,2px) }
+  75%{ transform: translate(2px,2px) }
+  100%{ transform: translate(0,0) }
+}
+.play.shake{ animation: shake 120ms linear 1 }
