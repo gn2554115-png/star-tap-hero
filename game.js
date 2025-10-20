@@ -1,238 +1,245 @@
-// === 幣圈掉落（含特效與計分板） ===
+// ==== 幣圈掉落：Pi 紫色最大；小慢大快；小多大少；擊中特效 + 計分板 ====
+
+// 基本 DOM
 const canvas = document.getElementById("game");
+const fx = document.getElementById("fx");
 const ctx = canvas.getContext("2d");
+const fxc = fx.getContext("2d");
 const startBtn = document.getElementById("startBtn");
 const scoreEl = document.getElementById("score");
-const boardList = document.getElementById("boardList");
-const totalEl = document.getElementById("totalScore");
+const loginBtn = document.getElementById("loginBtn");
 
-let score = 0;               // 分數（可保留）
-let totalHits = 0;           // 命中總次數
-let drops = [];              // 掉落物
-let particles = [];          // 爆炸粒子
-let meteors = [];            // 流星飛向計分板
-let running = false;
-
-// 幣種設定（Pi 紫色最大；U 綠色；S 黑色）
+// 幣種定義（顏色 & 尺寸 & 權重）
 const COINS = [
-  { id: "pi",   label: "π", color: "#9B4DFF", baseR: 34, baseScore: 5 }, // Pi 紫
-  { id: "btc",  label: "₿", color: "#F7931A", baseR: 26, baseScore: 3 },
-  { id: "eth",  label: "Ξ", color: "#627EEA", baseR: 24, baseScore: 2 },
-  { id: "sol",  label: "S", color: "#000000", baseR: 22, baseScore: 2 }, // S 黑
-  { id: "doge", label: "Ð", color: "#C2A633", baseR: 22, baseScore: 1 },
-  { id: "usdc", label: "U", color: "#1ABC9C", baseR: 20, baseScore: 1 }, // U 綠
+  { key:"PI",  label:"π", color:"#9B4DFF", baseR:34, score:5 },     // Pi 紫色，最大
+  { key:"B",   label:"₿", color:"#F7931A", baseR:26, score:3 },     // BTC
+  { key:"E",   label:"Ξ", color:"#627EEA", baseR:24, score:2 },     // ETH
+  { key:"S",   label:"S", color:"#111827", baseR:22, score:2 },     // S：黑
+  { key:"U",   label:"U", color:"#22c55e", baseR:22, score:1 },     // U：綠
+  { key:"D",   label:"Ð", color:"#C2A633", baseR:22, score:1 },     // DOGE
 ];
 
-// 依「大小」決定出現率：越小機率越高（權重 = 1 / baseR）
-const WEIGHTS = COINS.map(c => 1 / c.baseR);
-const WEIGHT_SUM = WEIGHTS.reduce((a,b)=>a+b,0);
+// 權重 = 1 / 尺寸  → 小顆機率高；Pi 最大 → 權重最低
+const weights = COINS.map(c => 1 / c.baseR);
+const weightSum = weights.reduce((a,b)=>a+b,0);
+
+// 遊戲狀態
+let drops = [];
+let score = 0;
+let started = false;
 
 // 計分板資料
-const board = {};
-COINS.forEach(c => board[c.id] = 0);
+const counts = { PI:0, B:0, E:0, S:0, U:0, D:0 };
+const sbTotal = document.getElementById("sbTotal");
 
-// 產生掉落物：半徑與速度相關（大→快，小→慢）
-function spawnDrop() {
-  // 先抽幣種（小的機率較高）
-  let r = Math.random() * WEIGHT_SUM;
-  let idx = 0;
-  for (let i=0;i<COINS.length;i++){ r -= WEIGHTS[i]; if (r<=0){ idx=i; break; } }
-  const coin = COINS[idx];
+// 工具：加總
+function updateTotals() {
+  const total = Object.values(counts).reduce((a,b)=>a+b,0);
+  sbTotal.textContent = String(total);
+  scoreEl.textContent = `Score: ${score}`;
+  // 更新每列
+  for (const k of Object.keys(counts)) {
+    const row = document.querySelector(`#row-${k} .val`);
+    if (row) row.textContent = String(counts[k]);
+  }
+}
 
-  // 以幣種的 baseR 為中心，加一點抖動
-  const radius = coin.baseR + (Math.random() * 4 - 2);
+// 工具：從幣名取 DOM row 中心（飛行目標）
+function getRowCenterXY(key){
+  const row = document.getElementById(`row-${key}`);
+  if (!row) return { x: canvas.getBoundingClientRect().right, y: canvas.getBoundingClientRect().top };
+  const rr = row.getBoundingClientRect();
+  return { x: rr.left + rr.width - 22, y: rr.top + rr.height/2 };
+}
 
-  // 速度：與半徑正比（越大越快）
-  const v = 0.8 + (radius / 34) * 2.4;  // 調整係數
+// 依權重挑幣
+function pickCoin(){
+  let r = Math.random() * weightSum;
+  for (let i=0;i<COINS.length;i++){
+    r -= weights[i];
+    if (r <= 0) return COINS[i];
+  }
+  return COINS[0];
+}
 
+// 生成掉落物：速度 ∝ 半徑（大快小慢）
+function spawn() {
+  const c = pickCoin();
+  const r = c.baseR + (Math.random()*4 - 2);
+  const minV = 1.0, maxV = 3.5;
+  const v = minV + (r - 18) / (36 - 18) * (maxV - minV); // 半徑 18~36 映射到速度區間
   drops.push({
-    coin,
-    x: radius + Math.random() * (canvas.width - 2 * radius),
-    y: -radius - 8,
-    r: radius,
-    v,
+    coin: c,
+    x: r + Math.random() * (canvas.width - 2*r),
+    y: -r - 10,
+    r, v,
+    rot: Math.random() * Math.PI*2,
+    vr: (Math.random()-0.5)*0.06,
   });
 }
 
-// 畫面主循環
+// 畫單一幣
+function drawCoin(d) {
+  const {x,y,r,coin} = d;
+  // 圓底
+  ctx.fillStyle = coin.color;
+  ctx.beginPath();
+  ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.fill();
+  // 幣字
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(d.rot);
+  ctx.fillStyle = "#fff";
+  ctx.font = `bold ${Math.round(r*1.15)}px Arial`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(coin.label,0,1);
+  ctx.restore();
+}
+
+// 主迴圈
 function loop(){
+  // 背景
   ctx.fillStyle = "#1A1038";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // 掉落物
+  // 更新與繪製
   for (const d of drops){
     d.y += d.v;
+    d.rot += d.vr;
     drawCoin(d);
   }
-  // 落地扣分
+
+  // 移除出界（扣分）
   drops = drops.filter(d=>{
     if (d.y < canvas.height + d.r) return true;
     score = Math.max(0, score - 1);
-    scoreEl.textContent = `Score: ${score}`;
+    updateTotals();
     return false;
   });
 
-  // 粒子特效
-  updateParticles();
-  // 流星
-  updateMeteors();
+  // 特效層持續清淡透明，以保留流星尾巴
+  fxc.fillStyle = "rgba(0,0,0,0.15)";
+  fxc.fillRect(0,0,fx.width,fx.height);
 
   requestAnimationFrame(loop);
 }
 
-// 幣圈繪製
-function drawCoin(d){
-  ctx.fillStyle = d.coin.color;
-  ctx.beginPath();
-  ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
-  ctx.fill();
-
-  ctx.fillStyle = "#fff";
-  ctx.font = `bold ${Math.round(d.r*1.15)}px Arial, system-ui`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(d.coin.label, d.x, d.y);
-}
-
-// 點擊判定
+// 點擊判定 & 特效
 canvas.addEventListener("click", (e)=>{
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+  const crect = canvas.getBoundingClientRect();
+  const x = e.clientX - crect.left;
+  const y = e.clientY - crect.top;
 
-  let hitAny = false;
+  let hit = false;
   drops = drops.filter(d=>{
-    if (Math.hypot(x - d.x, y - d.y) < d.r){
-      hitAny = true;
-      score += d.coin.baseScore;            // 分數
-      totalHits += 1;                       // 命中總次數
-      board[d.coin.id] += 1;                // 該幣 +1
-      scoreEl.textContent = `Score: ${score}`;
-      updateBoard();                        // 更新計分板
+    const dx = x - d.x, dy = y - d.y;
+    if (Math.hypot(dx,dy) <= d.r){
+      hit = true;
+      // 計分
+      counts[d.coin.key] += 1;
+      score += d.coin.score;
+      updateTotals();
 
-      // 爆開煙火
+      // 爆炸煙火
       burst(d.x, d.y, d.coin.color);
-      // 流星飛向記分板對應列
-      const tgt = boardTargetFor(d.coin.id);
-      if (tgt) shootMeteor(d.x, d.y, tgt.x, tgt.y, d.coin.color);
+
+      // 流星飛向右側計分板
+      launchMeteorToRow(d.x, d.y, d.coin.key, d.coin.color);
 
       return false; // 移除被點中的
     }
     return true;
   });
-
-  if (!hitAny){
-    // miss 效果可自行加
-  }
 });
 
-// === 粒子／流星特效 ===
-function burst(x, y, color){
-  const N = 18;
-  for (let i=0;i<N;i++){
-    const a = (Math.PI*2) * (i/N) + Math.random()*0.3;
+// 爆炸煙火（主畫布）
+function burst(x,y,color){
+  const parts = [];
+  for (let i=0;i<14;i++){
+    const a = Math.random()*Math.PI*2;
     const sp = 1.5 + Math.random()*2.5;
-    particles.push({
-      x, y,
-      vx: Math.cos(a)*sp,
-      vy: Math.sin(a)*sp,
-      life: 28 + Math.random()*12,
-      color,
-    });
+    parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:22});
   }
-}
-function updateParticles(){
-  particles = particles.filter(p=>{
-    p.x += p.vx; p.y += p.vy; p.vy += 0.02; // 重力
-    p.life -= 1;
-    ctx.fillStyle = p.color;
-    ctx.globalAlpha = Math.max(0, p.life/40);
-    ctx.fillRect(p.x, p.y, 3, 3);
-    ctx.globalAlpha = 1;
-    return p.life > 0;
-  });
-}
-
-function shootMeteor(x0,y0,x1,y1,color){
-  meteors.push({
-    x:x0, y:y0, tx:x1, ty:y1, t:0, color
-  });
-}
-function updateMeteors(){
-  meteors = meteors.filter(m=>{
-    m.t += 0.06; // 進度（0→1）
-    const t = Math.min(1, m.t);
-    // ease：先快後慢
-    const e = 1 - Math.pow(1 - t, 2);
-    m.x = xlerp(m.x, m.tx, e);
-    m.y = xlerp(m.y, m.ty, e);
-
-    // 畫尾巴
-    ctx.strokeStyle = m.color;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(m.x, m.y);
-    ctx.lineTo(m.x - 10, m.y - 6);
-    ctx.stroke();
-
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.arc(m.x, m.y, 3, 0, Math.PI*2);
-    ctx.fill();
-
-    return t < 1;
-  });
-}
-function xlerp(a,b,t){ return a + (b - a) * t; }
-
-// === 計分板 ===
-function updateBoard(){
-  // 重新渲染列表
-  boardList.innerHTML = "";
-  for (const c of COINS){
-    const li = document.createElement("li");
-    const left = document.createElement("span");
-    const right = document.createElement("span");
-    left.textContent = c.label;
-    left.style.fontWeight = "bold";
-    left.style.color = c.color;
-    right.textContent = board[c.id].toString();
-    li.appendChild(left); li.appendChild(right);
-    li.dataset.coinId = c.id; // 給定位用
-    boardList.appendChild(li);
-  }
-  totalEl.textContent = totalHits.toString();
+  const tick = ()=>{
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const p of parts){
+      p.x += p.vx; p.y += p.vy; p.vy += 0.03; p.life--;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = Math.max(0, p.life/22);
+      ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+    for (let i=parts.length-1;i>=0;i--) if (parts[i].life<=0) parts.splice(i,1);
+    if (parts.length) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 
-// 算出「畫布內」一個對應到計分板的目標點（視覺對齊）
-function boardTargetFor(coinId){
-  const listItems = boardList.querySelectorAll("li");
-  let idx = 0;
-  for (let i=0;i<listItems.length;i++){
-    if (listItems[i].dataset.coinId === coinId){ idx = i; break; }
-  }
-  // 在畫布右上角安排幾個行高位置，模擬飛去記分板
-  const rowH = 20;
-  const margin = 18;
-  return { x: canvas.width - margin, y: margin + rowH * (idx+1) };
+// 流星飛向計分板（使用 fx 覆蓋畫布，跨越到右側）
+function launchMeteorToRow(x,y,key,color){
+  const from = toViewport(x,y,canvas);
+  const to = getRowCenterXY(key); // 目標是右側列表的中心
+  const p = { x: from.x, y: from.y };
+  const total = 30; let t = 0;
+  const step = ()=>{
+    // 線性插值 + 一點曲線
+    const k = t/total;
+    p.x = from.x + (to.x - from.x)*k;
+    p.y = from.y + (to.y - from.y)*k - Math.sin(k*Math.PI)*30; // 弧線
+
+    // 畫流星
+    fxc.save();
+    // 尾巴
+    fxc.strokeStyle = color;
+    fxc.lineWidth = 3;
+    fxc.beginPath();
+    fxc.moveTo(p.x-10,p.y-6);
+    fxc.lineTo(p.x,p.y);
+    fxc.stroke();
+    // 彈頭
+    fxc.fillStyle = color;
+    fxc.beginPath();
+    fxc.arc(p.x,p.y,4,0,Math.PI*2);
+    fxc.fill();
+    fxc.restore();
+
+    t++;
+    if (t<=total) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
-// === 啟動 ===
+// 座標轉 viewport
+function toViewport(x,y,el){
+  const r = el.getBoundingClientRect();
+  return { x: r.left + x, y: r.top + y };
+}
+
+// Start
 startBtn.addEventListener("click", ()=>{
-  if (running) return;
-  running = true;
-  score = 0; totalHits = 0;
-  Object.keys(board).forEach(k=>board[k]=0);
-  updateBoard();
-  scoreEl.textContent = `Score: ${score}`;
-  drops = []; particles = []; meteors = [];
-
-  // 生成：小的機率高，大的低 → 以時間間隔為基礎補充
-  setInterval(spawnDrop, 520);
+  if (started) return;
+  started = true;
+  drops = [];
+  score = 0;
+  updateTotals();
+  // 固定節奏 + 隨機插入（小顆多）
+  setInterval(spawn, 520);
   loop();
 });
 
-// （可選）Pi SDK 初始化（保留原本）
+// Pi SDK（可留作日後 Mainnet 使用）
 if (typeof Pi !== "undefined" && Pi?.init) {
-  try { Pi.init({ version: "2.0", sandbox: true }); } catch {}
+  try { Pi.init({ version:"2.0", sandbox:true }); } catch {}
+}
+if (loginBtn){
+  loginBtn.addEventListener("click", async ()=>{
+    try {
+      const scopes = ['username','payments'];
+      const r = await Pi.authenticate(scopes, p=>console.log('incomplete',p));
+      alert(`Welcome @${r.user.username}!`);
+    } catch (e) { console.log(e); }
+  });
 }
