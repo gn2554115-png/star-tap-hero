@@ -9,8 +9,10 @@ const fxc  = fx.getContext("2d");
 const startBtn = document.getElementById("startBtn");
 const scoreEl  = document.getElementById("score");
 const loginBtn = document.getElementById("loginBtn");
+const authStatus = document.getElementById("authStatus");
 const sbTotal  = document.getElementById("sbTotal");
 const timerEl  = document.getElementById("timer");
+const AUTH_TIMEOUT_MESSAGE = "Pi authentication did not open. Please try opening this app from the Pi Developer Portal or refresh Pi Browser.";
 
 // 幣種 & 權重（小顆機率高）
 const COINS = [
@@ -354,13 +356,71 @@ startBtn.addEventListener("click", ()=>{
   requestAnimationFrame(loop);
 });
 
-// ----- Pi SDK（保留） -----
-if (typeof Pi!=="undefined" && Pi?.init){ try{ Pi.init({version:"2.0", sandbox:true}); }catch{} }
-if (loginBtn){
-  loginBtn.addEventListener("click", async ()=>{
-    try{
-      const r=await Pi.authenticate(['username','payments'], p=>console.log('incomplete',p));
-      alert(`Welcome @${r.user.username}!`);
-    }catch(e){ console.log(e); }
+// ----- Pi SDK -----
+function setAuthStatus(message) {
+  if (authStatus) authStatus.textContent = message;
+}
+
+function getErrorMessage(error) {
+  if (!error) return "Unknown error";
+  if (typeof error === "string") return error;
+  return error.message || error.reason || JSON.stringify(error);
+}
+
+function onIncompletePaymentFound(payment) {
+  console.warn("Incomplete Pi payment found:", payment);
+}
+
+function withTimeout(promise, timeoutMs) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(AUTH_TIMEOUT_MESSAGE)), timeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
+}
+
+async function initPiSdk() {
+  if (loginBtn) loginBtn.disabled = true;
+
+  if (typeof Pi === "undefined" || !Pi?.init || !Pi?.authenticate) {
+    setAuthStatus("Please open this game in Pi Browser to sign in.");
+    return;
+  }
+
+  try {
+    setAuthStatus("Initializing Pi SDK...");
+    await Pi.init({ version: "2.0", sandbox: false });
+    setAuthStatus("Pi sign in is ready.");
+    if (loginBtn) loginBtn.disabled = false;
+  } catch (error) {
+    setAuthStatus(`Pi SDK initialization failed: ${getErrorMessage(error)}`);
+  }
+}
+
+if (loginBtn) {
+  loginBtn.addEventListener("click", async () => {
+    if (typeof Pi === "undefined" || !Pi?.authenticate) {
+      setAuthStatus("Please open this game in Pi Browser to sign in.");
+      return;
+    }
+
+    loginBtn.disabled = true;
+    setAuthStatus("Opening Pi authentication...");
+
+    try {
+      const result = await withTimeout(
+        Pi.authenticate(["username"], onIncompletePaymentFound),
+        15000
+      );
+      const username = result && result.user && result.user.username ? result.user.username : "Pi user";
+      setAuthStatus(`Signed in as @${username}.`);
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      setAuthStatus(errorMessage === AUTH_TIMEOUT_MESSAGE ? AUTH_TIMEOUT_MESSAGE : `Pi sign in failed: ${errorMessage}`);
+      loginBtn.disabled = false;
+    }
   });
 }
+
+initPiSdk();
