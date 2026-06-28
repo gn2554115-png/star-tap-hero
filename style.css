@@ -24,9 +24,12 @@
 #game{background:#201558}
 #fx{position:absolute;left:0;top:0;pointer-events:none;background:transparent}
 
-.controls{display:flex;gap:10px;align-items:center;justify-content:center;margin:10px 0}
+.controls{display:flex;gap:10px;align-items:center;justify-content:center;margin:10px 0;flex-wrap:wrap}
 button{padding:8px 14px;border:0;border-radius:8px;background:var(--accent);color:#fff}
 button:disabled{opacity:.6}
+.support{background:#ffce3d;color:#241433;font-weight:800;border:1px solid rgba(255,255,255,.25)}
+.auth-status,.payment-status{margin:6px auto 0;max-width:min(92vw,640px);text-align:center;color:rgba(255,255,255,.84);font-size:14px;line-height:1.45}
+.payment-status{color:#ffeb9a}
 
 @media (max-width:700px){
   .topbar{gap:8px}

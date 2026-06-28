@@ -7,12 +7,15 @@ const fx   = document.getElementById("fx");
 const ctx  = cvs.getContext("2d");
 const fxc  = fx.getContext("2d");
 const startBtn = document.getElementById("startBtn");
+const supportBtn = document.getElementById("supportBtn");
 const scoreEl  = document.getElementById("score");
 const loginBtn = document.getElementById("loginBtn");
 const authStatus = document.getElementById("authStatus");
+const paymentStatus = document.getElementById("paymentStatus");
 const sbTotal  = document.getElementById("sbTotal");
 const timerEl  = document.getElementById("timer");
 const AUTH_TIMEOUT_MESSAGE = "Pi authentication did not open. Please try opening this app from the Pi Developer Portal or refresh Pi Browser.";
+const SUPPORT_AMOUNT = 0.01;
 
 // 幣種 & 權重（小顆機率高）
 const COINS = [
@@ -57,6 +60,10 @@ let drops = [];
 let score = 0;
 let counts = { PI:0,B:0,E:0,S:0,U:0,D:0 };
 let started = false;
+let signedIn = false;
+let paymentInProgress = false;
+const approvingPayments = new Set();
+const completingPayments = new Set();
 
 // 難度曲線
 let last = performance.now();
@@ -361,6 +368,14 @@ function setAuthStatus(message) {
   if (authStatus) authStatus.textContent = message;
 }
 
+function setPaymentStatus(message) {
+  if (paymentStatus) paymentStatus.textContent = message;
+}
+
+function setSupportEnabled(enabled) {
+  if (supportBtn) supportBtn.disabled = !enabled;
+}
+
 function getErrorMessage(error) {
   if (!error) return "Unknown error";
   if (typeof error === "string") return error;
@@ -380,11 +395,35 @@ function withTimeout(promise, timeoutMs) {
   return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
 }
 
+async function postPaymentFunction(url, payload) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (error) {
+    data = { error: text || "Invalid server response" };
+  }
+
+  if (!response.ok || data.ok === false) {
+    throw new Error(data.error || `Server request failed with status ${response.status}`);
+  }
+
+  return data;
+}
+
 async function initPiSdk() {
   if (loginBtn) loginBtn.disabled = true;
+  setSupportEnabled(false);
 
   if (typeof Pi === "undefined" || !Pi?.init || !Pi?.authenticate) {
     setAuthStatus("Please open this game in Pi Browser to sign in.");
+    setPaymentStatus("Pi Browser sign in is required before payment.");
     return;
   }
 
@@ -392,9 +431,11 @@ async function initPiSdk() {
     setAuthStatus("Initializing Pi SDK...");
     await Pi.init({ version: "2.0", sandbox: false });
     setAuthStatus("Pi sign in is ready.");
+    setPaymentStatus("Sign in with Pi to enable support payment.");
     if (loginBtn) loginBtn.disabled = false;
   } catch (error) {
     setAuthStatus(`Pi SDK initialization failed: ${getErrorMessage(error)}`);
+    setSupportEnabled(false);
   }
 }
 
@@ -406,20 +447,107 @@ if (loginBtn) {
     }
 
     loginBtn.disabled = true;
+    setSupportEnabled(false);
     setAuthStatus("Opening Pi authentication...");
 
     try {
       const result = await withTimeout(
-        Pi.authenticate(["username"], onIncompletePaymentFound),
+        Pi.authenticate(["username", "payments"], onIncompletePaymentFound),
         15000
       );
       const username = result && result.user && result.user.username ? result.user.username : "Pi user";
+      signedIn = true;
       setAuthStatus(`Signed in as @${username}.`);
+      setPaymentStatus("準備付款");
+      setSupportEnabled(true);
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       setAuthStatus(errorMessage === AUTH_TIMEOUT_MESSAGE ? AUTH_TIMEOUT_MESSAGE : `Pi sign in failed: ${errorMessage}`);
+      setPaymentStatus("Pi sign in is required before payment.");
       loginBtn.disabled = false;
+      setSupportEnabled(false);
     }
+  });
+}
+
+async function approvePayment(paymentId) {
+  if (approvingPayments.has(paymentId)) return;
+  approvingPayments.add(paymentId);
+  setPaymentStatus("等待批准");
+
+  try {
+    await postPaymentFunction("/.netlify/functions/approve-payment", { paymentId });
+    setPaymentStatus("等待使用者確認付款");
+  } catch (error) {
+    approvingPayments.delete(paymentId);
+    setPaymentStatus(`付款失敗：${getErrorMessage(error)}`);
+    throw error;
+  }
+}
+
+async function completePayment(paymentId, txid) {
+  const key = `${paymentId}:${txid}`;
+  if (completingPayments.has(key)) return;
+  completingPayments.add(key);
+  setPaymentStatus("等待完成");
+
+  try {
+    await postPaymentFunction("/.netlify/functions/complete-payment", { paymentId, txid });
+    paymentInProgress = false;
+    completingPayments.delete(key);
+    approvingPayments.delete(paymentId);
+    setPaymentStatus("付款完成");
+    setSupportEnabled(signedIn);
+  } catch (error) {
+    completingPayments.delete(key);
+    setPaymentStatus(`付款失敗：${getErrorMessage(error)}`);
+    throw error;
+  }
+}
+
+if (supportBtn) {
+  supportBtn.addEventListener("click", () => {
+    if (!signedIn) {
+      setPaymentStatus("Please sign in with Pi before payment.");
+      return;
+    }
+
+    if (typeof Pi === "undefined" || !Pi?.createPayment) {
+      setPaymentStatus("付款失敗：Pi SDK createPayment is not available.");
+      return;
+    }
+
+    if (paymentInProgress) return;
+
+    paymentInProgress = true;
+    setSupportEnabled(false);
+    setPaymentStatus("準備付款");
+
+    Pi.createPayment(
+      {
+        amount: SUPPORT_AMOUNT,
+        memo: "Support Star Tap Hero",
+        metadata: { type: "support", app: "star-tap-hero" },
+      },
+      {
+        onReadyForServerApproval: (paymentId) => {
+          approvePayment(paymentId).catch((error) => console.warn("Payment approval failed:", error));
+        },
+        onReadyForServerCompletion: (paymentId, txid) => {
+          completePayment(paymentId, txid).catch((error) => console.warn("Payment completion failed:", error));
+        },
+        onCancel: () => {
+          paymentInProgress = false;
+          setPaymentStatus("使用者取消");
+          setSupportEnabled(signedIn);
+        },
+        onError: (error) => {
+          paymentInProgress = false;
+          setPaymentStatus(`付款失敗：${getErrorMessage(error)}`);
+          setSupportEnabled(signedIn);
+        },
+      }
+    );
   });
 }
 

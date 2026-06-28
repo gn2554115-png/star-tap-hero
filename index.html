@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Star Tap Hero</title>
-  <link rel="stylesheet" href="style.css?v=topbar1" />
+  <link rel="stylesheet" href="style.css?v=payment1" />
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 </head>
 <body>
@@ -32,14 +32,16 @@
 
       <div class="controls">
         <button id="startBtn">Start</button>
+        <button id="supportBtn" class="support" disabled>Support 0.01 Pi</button>
         <p id="score">Score: 0</p>
       </div>
       <p id="authStatus" class="auth-status" role="status">Initializing Pi sign in...</p>
+      <p id="paymentStatus" class="payment-status" role="status">Sign in with Pi to enable support payment.</p>
     </div>
   </main>
 
   <footer><small>Built for Pi Browser • Testnet version</small></footer>
 
-  <script src="game.js?v=topbar1"></script>
+  <script src="game.js?v=payment1"></script>
 </body>
 </html>
